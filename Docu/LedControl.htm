@@ -1,0 +1,283 @@
+﻿<!DOCTYPE HTML>
+<!--------------------------------------------------------------------------->
+<!--                           INTRODUCTION
+
+ The CodeProject article submission template (HTML version)
+
+Using this template will help us post your article sooner. To use, just
+follow the 3 easy steps below:
+
+     1. Fill in the article description details
+     2. Add links to your images and downloads
+     3. Include the main article text
+
+That's all there is to it! All formatting will be done by our submission
+scripts and style sheets.
+
+-->
+<!--------------------------------------------------------------------------->
+<!--                        IGNORE THIS SECTION                            -->
+<html>
+<head>
+    <title>CodeProject</title>
+    <Style>
+        BODY, P, TD {
+            font-family: Verdana, Arial, Helvetica, sans-serif;
+            font-size: 10pt
+        }
+
+        H2, H3, H4, H5 {
+            color: #ff9900;
+            font-weight: bold;
+        }
+
+        H2 {
+            font-size: 13pt;
+        }
+
+        H3 {
+            font-size: 12pt;
+        }
+
+        H4 {
+            font-size: 10pt;
+            color: black;
+        }
+
+        PRE {
+            BACKGROUND-COLOR: #FBEDBB;
+            FONT-FAMILY: "Courier New", Courier, mono;
+            WHITE-SPACE: pre;
+        }
+
+        CODE {
+            COLOR: #990000;
+            FONT-FAMILY: "Courier New", Courier, mono;
+        }
+    </Style>
+    <link type="text/css" rel="stylesheet"
+          href="https://codeproject.global.ssl.fastly.net/App_Themes/CodeProject/Css/Main.min.css">
+</head>
+<body bgcolor="#FFFFFF" color=#000000>    
+<pre>
+Title:       WPF LED custom control in code behind
+Author:      pkaelin
+Email:       pkaelin@live.com
+Language:    C# 6.0, XAML
+Platform:    Windows
+Technology:  WPF
+Level:       Intermediate
+Description: LED (for eg. traffic light) control in code behind
+Section      Enter the Code Project Section you Wish the Article to Appear
+SubSection   Enter the Code Project SubSection you Wish the Article to Appear
+License:     <a href="http://www.codeproject.com/info/licenses.aspx">CPOL</a>
+</pre>
+
+
+    <ul class="download">
+        <li><a href="Wpf.Windows.zip">Download demo/source 16Kb</a></li>
+    </ul>
+    <p><img alt="Multiple LED controls" src="MultipleControls.png" style="width: 615px; height: 200px;" /></p>
+    <h2>Introduction</h2>
+    <p>
+        We needed a control for a WPF windows infrastructure library that visually showed us the state of different components within our application. The most obvious thing that popped into my mind was a traffic signal that, per default, showed me three LEDs (green, orange, red) that indicate the components state (Ok, Warning, Error) of which only one LED could be active.<br />
+        <br />
+        For pleasing the end user, we wanted to make them animated. For my own sake, I wanted to make them animated, configurable, not using images and not using resources. Therefore, I created an LED control with control creation and animation functionality in code behind.
+    </p>
+    <h2>Using the code</h2>
+    <p>For the sake of good practice, I have created two assemblies. One that simulates the common infrastructure library that contains the &quot;LedControl&quot; and one assembly that shows the control within a WPF application. I usually use Prism for composite pattern, injections, MVVM, etc. but to keep this example simple I have created two classes in the MVVM folder and assigned the ViewModel directly within the MainWindow. Not a good practice but I wanted to keep the sample simple. The LED control was created with a certain contract in mind and was therefore only tested within that contract.</p>
+    <h2>Controls properties</h2>
+    <p>
+        The control has the following configurable dependency properties:<br />
+        <br />
+        <strong>List&lt;Color&gt; Leds</strong><br />
+        A list of colors that is used to display LEDs in those defined colors. The default is green, orange and red.<br />
+        Images below show the default LEDs in their on/off mode
+    </p>
+    <table>
+        <tbody>
+            <tr>
+                <th>Green</th>
+                <th>Orange</th>
+                <th>Red</th>
+            </tr>
+            <tr>
+                <td><img alt="Green" src="Green.png" style="margin-right: 10px; margin-left: 15px;" /></td>
+                <td><img alt="Green" src="Orange.png" style="margin-right: 10px; margin-left: 15px;" /></td>
+                <td><img alt="Red" src="Red.png" style="margin-right: 10px; margin-left: 15px;" /></td>
+            </tr>
+        </tbody>
+    </table>
+    <p>
+        <br />
+        <strong>double OffOpacity</strong><br />
+        The opacity of the LED color in off mode. The default is 0.4.<br />
+        <br />
+        <strong>int ActiveLed</strong><br />
+        Active index of the LED. Eg. 0=nothing active, 1=first LED within the LEDs list is active, 2=second, etc.<br />
+        <br />
+        <strong>Orientation LedOrientation</strong><br />
+        The orientation of the LEDs. Horizontal or Vertical. The default is horizontal.
+    </p>
+    <div style="color: crimson;">
+        The importance of the orientation is that one should define a height on the custom control when the orientation is horizontal and a width if the orientation is vertical. This gets used to control the size of the LEDs.<br />
+        If not set the custom control will use the size available.
+    </div>
+    <p>
+        The control uses a StackPanel that contains a list of Ellipse (LED) controls. The brush of the ellipse is used to display the color of the LED and to simulate the on/off behavior.<br />
+        <br />
+        The loading of the LEDs happens after the control is loaded so that we know the sizes of the framework elements. The loaded event gets registered in the constructor
+    </p>
+<pre lang="cs">
+        public LedControl()
+        {
+            Loaded += LoadLeds;
+        }
+</pre>
+    <p>
+        <br />
+        The control creation happens in the LoadLeds method that is called either after the control is loaded or the property Leds has changed.
+    </p>
+<pre lang="cs">
+        private void LoadLeds(object sender, RoutedEventArgs e)
+        {
+            FrameworkElement parent = Parent as FrameworkElement;
+            StackPanel panel = new StackPanel();
+            Content = panel;
+            panel.Orientation = LedOrientation;
+            panel.Children.Clear();
+            ellipses.Clear();
+            double size;
+
+            if (LedOrientation == Orientation.Horizontal)
+            {
+                size = Height;
+            }
+            else
+            {
+                size = Width;
+            }
+            // Give it some size if forgotten to define width or height in combination with orientation
+            if ((size.Equals(double.NaN)) &amp;&amp; (parent != null) &amp;&amp; (Leds.Count != 0))
+            {
+                if (parent.ActualWidth != double.NaN)
+                {
+                    size = parent.ActualWidth / Leds.Count;
+                }
+                else if (parent.ActualHeight != double.NaN)
+                {
+                    size = parent.ActualHeight / Leds.Count;
+                }
+            }
+            // Create LED for each defined color in Leds
+            foreach (Color color in Leds)
+            {
+                Ellipse ellipse = new Ellipse();
+                ellipse.Height = size &gt; 4 ? size - 4 : size;
+                ellipse.Width = size &gt; 4 ? size - 4 : size;
+                ellipse.Margin = new Thickness(2);
+                ellipse.Style = null;
+                // Border for led
+                RadialGradientBrush srgb = new RadialGradientBrush(new GradientStopCollection
+                {
+                    new GradientStop(Color.FromArgb(255, 211, 211, 211), 0.8d),
+                    new GradientStop(Color.FromArgb(255, 169, 169, 169), 0.9d),
+                    new GradientStop(Color.FromArgb(255, 150, 150, 150), 0.95d),
+                });
+
+                if (size  &lt;= 50)
+                {
+                    ellipse.StrokeThickness = 5;
+                }
+                else if (size  &lt;= 100)
+                {
+                    ellipse.StrokeThickness = 10;
+                }
+                else
+                {
+                    ellipse.StrokeThickness = 20;
+                }
+
+                srgb.GradientOrigin = new System.Windows.Point(0.5d, 0.5d);
+                srgb.Center = new System.Windows.Point(0.5d, 0.5d);
+                srgb.RadiusX = 0.5d;
+                srgb.RadiusY = 0.5d;
+                ellipse.Stroke = srgb;
+                // Color of led
+                RadialGradientBrush rgb = new RadialGradientBrush(new GradientStopCollection
+                {
+                    new GradientStop(Color.FromArgb(150, color.R, color.G, color.B), 0.1d),
+                    new GradientStop(Color.FromArgb(200, color.R, color.G, color.B), 0.4d),
+                    new GradientStop(Color.FromArgb(255, color.R, color.G, color.B), 1.0d),
+                });
+
+                rgb.GradientOrigin = new System.Windows.Point(0.5d, 0.5d);
+                rgb.Center = new System.Windows.Point(0.5d, 0.5d);
+                rgb.RadiusX = 0.5d;
+                rgb.RadiusY = 0.5d;
+                // ellipse.Fill is used as animation target
+                ellipse.Fill = rgb;
+                ellipse.Fill.Opacity = OffOpacity;
+                panel.Children.Add(ellipse);
+                ellipses.Add(ellipse);
+            }
+
+            LedOn();
+        }
+</pre>
+    <p>
+        <br />
+        The two methods LedOn()
+    </p>
+<pre lang="cs">
+        private void LedOn()
+        {
+            DoubleAnimation animation = new DoubleAnimation();
+            animation.From = OffOpacity;
+            animation.To = 1.0d;
+            animation.Duration = new Duration(TimeSpan.FromSeconds(1));
+            animation.AutoReverse = false;
+
+            for (int i = 0; i &lt; ellipses.Count; i++)
+            {
+                if ((ActiveLed - 1 == i) &amp;&amp; (ellipses[i].Fill.Opacity &lt; 1.0))
+                {
+                    ellipses[i].Fill.BeginAnimation(Brush.OpacityProperty, animation);
+                }
+            }
+        }
+</pre>
+    <p>and LedOff()</p>
+<pre lang="cs">
+        private void LedOff()
+        {
+            DoubleAnimation animation = new DoubleAnimation();
+            animation.From = 1.0d;
+            animation.To = OffOpacity;
+            animation.Duration = new Duration(TimeSpan.FromSeconds(1));
+            animation.AutoReverse = false;
+
+            for (int i = 0; i  &lt; ellipses.Count; i++)
+            {
+                if ((ActiveLed - 1 != i) &amp;&amp; (ellipses[i].Fill.Opacity &gt; OffOpacity))
+                {
+                    ellipses[i].Fill.BeginAnimation(Brush.OpacityProperty, animation);
+                }
+            }
+        }
+</pre>
+    <p>run an animation (after ActiveLed has changed) by changing the opacity, on the ellipses brush. The check for the ActiveLed and the current Opacity is done so we don&rsquo;t switch on and off the same LED at the same time.</p>
+    <h2>How to use the control</h2>
+    <p>In the MainWindowxaml you can find some example of how to use the control and to test your own creations. Some are as follow:</p>
+<pre lang="xml">
+    &lt;controls:LedControl ActiveLed=&quot;{Binding ActiveLedItem1}&quot; LedOrientation=&quot;Vertical&quot; Width=&quot;50&quot; Margin=&quot;20&quot; /&gt;
+    &lt;controls:LedControl ActiveLed=&quot;{Binding ActiveLedItem1}&quot; Height=&quot;125&quot; Margin=&quot;20&quot; /&gt;
+    &lt;controls:LedControl ActiveLed=&quot;{Binding ActiveLedItem1}&quot; LedOrientation=&quot;Vertical&quot; Width=&quot;50&quot; Leds=&quot;{Binding Colors}&quot; Margin=&quot;20&quot; /&gt;
+</pre>
+    <h2>History</h2>
+    <p>Initial post.</p>
+
+</body>
+
+</html>
+
